@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -16,7 +19,6 @@ jobs:
           ZIP=$(ls FileMaster-*.zip | sort -V | tail -1)
           echo "Zip utilisé : $ZIP"
           unzip -q "$ZIP" -d build_src
-          ls build_src/FileMaster
 
       - uses: actions/setup-java@v4
         with:
@@ -27,11 +29,21 @@ jobs:
         with:
           gradle-version: 8.7
 
-      - name: Compiler l'APK debug
+      - name: Compiler l'APK (signé avec la clé fixe)
         working-directory: build_src/FileMaster
         run: gradle assembleDebug --stacktrace
 
+      - name: Nommer l'APK
+        run: cp build_src/FileMaster/app/build/outputs/apk/debug/app-debug.apk FileMaster-build-${{ github.run_number }}.apk
+
       - uses: actions/upload-artifact@v4
         with:
-          name: FileMaster-debug-apk
-          path: build_src/FileMaster/app/build/outputs/apk/debug/*.apk
+          name: FileMaster-apk
+          path: FileMaster-build-${{ github.run_number }}.apk
+
+      - name: Publier une release (téléchargement direct depuis le téléphone)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: FileMaster build ${{ github.run_number }}
+          files: FileMaster-build-${{ github.run_number }}.apk
